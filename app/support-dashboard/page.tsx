@@ -370,8 +370,7 @@ export default function SupportDashboardPage() {
                     <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                     <p className="text-gray-600 dark:text-gray-400 font-medium">No tickets found</p>
                     <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-                      No tickets match your search "{searchQuery}"
-                    </p>
+                      No tickets match your search &quot;{searchQuery}&quot;                    </p>
                     <button
                       onClick={() => setSearchQuery('')}
                       className="mt-4 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

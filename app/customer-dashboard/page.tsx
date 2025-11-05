@@ -318,8 +318,7 @@ export default function CustomerDashboardPage() {
               <Search className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">No Results Found</h3>
               <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 px-2">
-                No queries match your search "{searchQuery}"
-              </p>
+                No queries match your search &quot;{searchQuery}&quot;              </p>
               <button
                 onClick={() => setSearchQuery('')}
                 className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium text-sm sm:text-base"
