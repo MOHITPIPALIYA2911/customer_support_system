@@ -8,9 +8,13 @@ import { TicketCard } from '@/components/TicketCard';
 import { ChatMessage } from '@/components/ChatMessage';
 import { CustomerInfoPanel } from '@/components/CustomerInfoPanel';
 import { QuickReplyPanel } from '@/components/QuickReplyPanel';
-import { Send, LogOut, CheckCircle2, AlertTriangle, StickyNote, Filter, Menu, X, ArrowLeft, User } from 'lucide-react';
+import { NotificationSettings } from '@/components/NotificationSettings';
+import { Send, LogOut, CheckCircle2, AlertTriangle, StickyNote, Filter, Menu, X, ArrowLeft, User, Mic, MicOff, Paperclip, Search } from 'lucide-react';
 import { Agent } from '@/types';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useNotifications } from '@/hooks/useNotifications';
+import { FileAttachment } from '@/types';
 
 export default function SupportDashboardPage() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -32,8 +36,31 @@ export default function SupportDashboardPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showCustomerInfo, setShowCustomerInfo] = useState(false);
   const [mobileView, setMobileView] = useState<'tickets' | 'chat'>('tickets');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Speech recognition
+  const {
+    isListening,
+    transcript,
+    error: speechError,
+    startListening,
+    stopListening,
+    isSupported: isSpeechSupported,
+  } = useSpeechRecognition();
+
+  // Notifications
+  const {
+    showNotification,
+    isEnabled: notificationsEnabled,
+  } = useNotifications({ title: 'KRUX Finance - Support Dashboard' });
+
+  // Track previous messages count to detect new messages
+  const previousMessagesCountRef = useRef<Record<string, number>>({});
+  const previousUnreadCountRef = useRef<number>(0);
 
   // Handle window resize to reset mobile view
   useEffect(() => {
@@ -67,6 +94,79 @@ export default function SupportDashboardPage() {
     }
   }, [activeConversation?.id]);
 
+  // Check for new messages and show notifications
+  useEffect(() => {
+    if (!notificationsEnabled || !user) return;
+
+    const isPageHidden = typeof document !== 'undefined' && document.hidden;
+
+    conversations.forEach(conv => {
+      const currentMessagesCount = conv.messages.length;
+      const previousCount = previousMessagesCountRef.current[conv.id] || 0;
+
+      // Check if new message arrived
+      if (
+        currentMessagesCount > previousCount &&
+        previousCount > 0 // Don't notify on initial load
+      ) {
+        const lastMessage = conv.messages[conv.messages.length - 1];
+        
+        // Only notify if:
+        // 1. Message is from customer (agent wants to know about customer messages)
+        // 2. Message is unread
+        // 3. Agent is assigned to this conversation or conversation is not assigned
+        // 4. Conversation is not currently active OR page is hidden
+        // 5. Page is hidden (user is not actively viewing)
+        if (
+          lastMessage.sender === 'customer' &&
+          lastMessage.senderId !== user.id &&
+          !lastMessage.read &&
+          (!conv.assignedAgentId || conv.assignedAgentId === user.id) &&
+          (!activeConversation || activeConversation.id !== conv.id) &&
+          isPageHidden // Only notify if page is in background
+        ) {
+          const messagePreview = lastMessage.content.length > 50 
+            ? lastMessage.content.substring(0, 50) + '...' 
+            : lastMessage.content;
+
+          showNotification(
+            `New message from ${conv.customerName}`,
+            {
+              body: messagePreview,
+              tag: conv.id,
+            }
+          );
+        }
+      }
+
+      previousMessagesCountRef.current[conv.id] = currentMessagesCount;
+    });
+
+    // Update total unread count
+    const totalUnread = conversations.reduce((total, conv) => {
+      return total + getUnreadCount(conv.id);
+    }, 0);
+    previousUnreadCountRef.current = totalUnread;
+  }, [conversations, notificationsEnabled, user, activeConversation, getUnreadCount, showNotification]);
+
+  // Update page title with unread count
+  useEffect(() => {
+    if (!notificationsEnabled) {
+      document.title = 'KRUX Finance - Support Dashboard';
+      return;
+    }
+
+    const totalUnread = conversations.reduce((total, conv) => {
+      return total + getUnreadCount(conv.id);
+    }, 0);
+
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) KRUX Finance - Support Dashboard`;
+    } else {
+      document.title = 'KRUX Finance - Support Dashboard';
+    }
+  }, [conversations, notificationsEnabled, getUnreadCount]);
+
   // Switch back to tickets view on mobile when conversation is closed
   useEffect(() => {
     if (!activeConversation && window.innerWidth < 768) {
@@ -74,16 +174,80 @@ export default function SupportDashboardPage() {
     }
   }, [activeConversation]);
 
+  // Update input message when transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setInputMessage(transcript);
+    }
+  }, [transcript]);
+
+  // Handle speech recognition toggle
+  const handleToggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove file from selection
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Convert File to FileAttachment
+  const convertFileToAttachment = (file: File): FileAttachment => {
+    const fileId = `file-${Date.now()}-${Math.random()}`;
+    // Create mock URL for preview (using FileReader for images)
+    let url: string | undefined;
+    if (file.type.startsWith('image/')) {
+      url = URL.createObjectURL(file);
+    }
+    return {
+      id: fileId,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      url,
+    };
+  };
+
   const handleSendMessage = () => {
-    if (!inputMessage.trim() || !activeConversation || !user) return;
+    if ((!inputMessage.trim() && selectedFiles.length === 0) || !activeConversation || !user) return;
+
+    // Stop listening if active
+    if (isListening) {
+      stopListening();
+    }
 
     // Assign agent to conversation if not already assigned
     if (!activeConversation.assignedAgentId) {
       assignAgent(activeConversation.id, user.id, user.name);
     }
 
-    sendMessage(activeConversation.id, inputMessage, 'agent', user.id, user.name);
+    const attachments: FileAttachment[] = selectedFiles.map(convertFileToAttachment);
+    sendMessage(
+      activeConversation.id, 
+      inputMessage.trim() || (attachments.length > 0 ? '📎 Attached file(s)' : ''), 
+      'agent', 
+      user.id, 
+      user.name,
+      attachments.length > 0 ? attachments : undefined
+    );
     setInputMessage('');
+    setSelectedFiles([]);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -133,6 +297,40 @@ export default function SupportDashboardPage() {
     return <AgentLogin />;
   }
 
+  // Search function
+  const searchConversations = (query: string, conversations: any[]) => {
+    if (!query.trim()) return conversations;
+    
+    const searchTerm = query.toLowerCase().trim();
+    return conversations.filter(conv => {
+      // Search in customer name
+      if (conv.customerName.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in customer phone
+      if (conv.customerPhone.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in conversation ID
+      if (conv.id.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in category
+      if (conv.category.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in status
+      if (conv.status.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in assigned agent name
+      if (conv.assignedAgentName?.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in messages
+      const messageMatch = conv.messages.some((msg: any) => 
+        msg.content.toLowerCase().includes(searchTerm)
+      );
+      if (messageMatch) return true;
+      
+      return false;
+    });
+  };
+
   // Filter conversations
   const filteredConversations = conversations.filter(conv => {
     if (filterStatus === 'all') return true;
@@ -140,8 +338,11 @@ export default function SupportDashboardPage() {
     return conv.status === filterStatus;
   });
 
+  // Apply search filter
+  const searchedConversations = searchConversations(searchQuery, filteredConversations);
+
   // Sort by last message time
-  const sortedConversations = [...filteredConversations].sort(
+  const sortedConversations = [...searchedConversations].sort(
     (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
   );
 
@@ -165,6 +366,7 @@ export default function SupportDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
+            <NotificationSettings />
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -192,6 +394,28 @@ export default function SupportDashboardPage() {
         >
           <div className="p-3 md:p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 bg-white dark:bg-gray-800">
             <h2 className="font-semibold text-gray-900 dark:text-white mb-3 text-sm md:text-base">Tickets Queue</h2>
+            
+            {/* Search Input */}
+            <div className="mb-3 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search tickets..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                </button>
+              )}
+            </div>
+            
             <div className="flex gap-2 overflow-x-auto pb-2">
               {['all', 'active', 'assigned', 'resolved'].map(status => (
                 <button
@@ -207,6 +431,11 @@ export default function SupportDashboardPage() {
                 </button>
               ))}
             </div>
+            {searchQuery && (
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Found {sortedConversations.length} ticket{sortedConversations.length !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -222,12 +451,30 @@ export default function SupportDashboardPage() {
               ))
             ) : (
               <div className="p-8 text-center">
-                <p className="text-gray-500 dark:text-gray-400">No tickets found</p>
-                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                  {filterStatus === 'all' 
-                    ? 'Waiting for customer inquiries...'
-                    : `No ${filterStatus} tickets`}
-                </p>
+                {searchQuery ? (
+                  <>
+                    <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                    <p className="text-gray-600 dark:text-gray-400 font-medium">No tickets found</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                      No tickets match your search "{searchQuery}"
+                    </p>
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mt-4 px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Clear Search
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-500 dark:text-gray-400">No tickets found</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+                      {filterStatus === 'all' 
+                        ? 'Waiting for customer inquiries...'
+                        : `No ${filterStatus} tickets`}
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -356,7 +603,72 @@ export default function SupportDashboardPage() {
                   </button>
                 </div>
 
+                {speechError && (
+                  <div className="mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-xs text-red-600 dark:text-red-400">{speechError}</p>
+                  </div>
+                )}
+                {isListening && (
+                  <div className="mb-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                    <p className="text-xs text-green-600 dark:text-green-400">Listening...</p>
+                  </div>
+                )}
+                {selectedFiles.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    {selectedFiles.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-100 dark:bg-green-900/30 rounded-lg text-sm"
+                      >
+                        <span className="text-green-700 dark:text-green-300 truncate max-w-[150px]">{file.name}</span>
+                        <button
+                          onClick={() => handleRemoveFile(index)}
+                          className="text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100"
+                          aria-label="Remove file"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    onChange={handleFileSelect}
+                    className="hidden"
+                    accept="image/*,.pdf,.doc,.docx,.txt"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={activeConversation.status === 'resolved'}
+                    className="p-2.5 md:p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex-shrink-0"
+                    title="Attach file"
+                  >
+                    <Paperclip className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
+                  {isSpeechSupported && (
+                    <button
+                      onClick={handleToggleListening}
+                      disabled={activeConversation.status === 'resolved'}
+                      className={`p-2.5 md:p-3 rounded-full transition-colors flex-shrink-0 touch-manipulation ${
+                        isListening
+                          ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      title={isListening ? 'Stop listening' : 'Start voice input'}
+                    >
+                      {isListening ? (
+                        <MicOff className="w-4 h-4 md:w-5 md:h-5" />
+                      ) : (
+                        <Mic className="w-4 h-4 md:w-5 md:h-5" />
+                      )}
+                    </button>
+                  )}
                   <input
                     type="text"
                     value={inputMessage}
@@ -368,7 +680,7 @@ export default function SupportDashboardPage() {
                   />
                   <button
                     onClick={handleSendMessage}
-                    disabled={!inputMessage.trim() || activeConversation.status === 'resolved'}
+                    disabled={(!inputMessage.trim() && selectedFiles.length === 0) || activeConversation.status === 'resolved'}
                     className="bg-green-600 text-white p-2.5 md:p-3 rounded-full hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex-shrink-0"
                     aria-label="Send message"
                   >

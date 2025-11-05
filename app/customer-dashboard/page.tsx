@@ -6,15 +6,24 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
 import { CustomerLogin } from '@/components/CustomerLogin';
-import { User, MessageCircle, Plus, Clock, CheckCircle2, AlertCircle, ArrowRight, LogOut } from 'lucide-react';
+import { NotificationSettings } from '@/components/NotificationSettings';
+import { User, MessageCircle, Plus, Clock, CheckCircle2, AlertCircle, ArrowRight, LogOut, Search, X } from 'lucide-react';
 import { Conversation } from '@/types';
 import { getLoanApplicationsByCustomerId } from '@/utils/mockData';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function CustomerDashboardPage() {
   const { user, logout, isAuthenticated } = useAuth();
-  const { conversations, createConversation } = useChat();
+  const { conversations, createConversation, getUnreadCount } = useChat();
   const router = useRouter();
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Notifications
+  const {
+    isEnabled: notificationsEnabled,
+  } = useNotifications({ title: 'KRUX Finance - Customer Dashboard' });
 
   // Get user's conversations
   const userConversations = conversations
@@ -96,6 +105,58 @@ export default function CustomerDashboardPage() {
     });
   };
 
+  // Search function
+  const searchConversations = (query: string, conversations: Conversation[]) => {
+    if (!query.trim()) return conversations;
+    
+    const searchTerm = query.toLowerCase().trim();
+    return conversations.filter(conv => {
+      // Search in conversation ID
+      if (conv.id.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in category
+      if (conv.category.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in status
+      if (conv.status.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in priority
+      if (conv.priority.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in assigned agent name
+      if (conv.assignedAgentName?.toLowerCase().includes(searchTerm)) return true;
+      
+      // Search in messages
+      const messageMatch = conv.messages.some(msg => 
+        msg.content.toLowerCase().includes(searchTerm)
+      );
+      if (messageMatch) return true;
+      
+      return false;
+    });
+  };
+
+  // Apply search filter
+  const filteredConversations = searchConversations(searchQuery, userConversations);
+
+  // Update page title with unread count
+  useEffect(() => {
+    if (!notificationsEnabled) {
+      document.title = 'KRUX Finance - Customer Dashboard';
+      return;
+    }
+
+    const totalUnread = userConversations.reduce((total, conv) => {
+      return total + getUnreadCount(conv.id);
+    }, 0);
+
+    if (totalUnread > 0) {
+      document.title = `(${totalUnread}) KRUX Finance - Customer Dashboard`;
+    } else {
+      document.title = 'KRUX Finance - Customer Dashboard';
+    }
+  }, [userConversations, notificationsEnabled, getUnreadCount]);
+
   if (!isAuthenticated) {
     return <CustomerLogin />;
   }
@@ -115,6 +176,7 @@ export default function CustomerDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-4 flex-shrink-0">
+            <NotificationSettings />
             <ThemeToggle />
             <button
               onClick={logout}
@@ -193,11 +255,34 @@ export default function CustomerDashboardPage() {
 
         {/* Query History */}
         <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6">
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">Query History</h2>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Query History</h2>
+            
+            {/* Search Input */}
+            <div className="w-full sm:w-auto sm:min-w-[250px] relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search queries..."
+                className="w-full pl-9 pr-9 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
+                  aria-label="Clear search"
+                >
+                  <X className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                </button>
+              )}
+            </div>
+          </div>
 
-          {userConversations.length > 0 ? (
+          {filteredConversations.length > 0 ? (
             <div className="space-y-3 sm:space-y-4">
-              {userConversations.map((conversation) => (
+              {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => handleOpenConversation(conversation.id)}
@@ -241,7 +326,7 @@ export default function CustomerDashboardPage() {
                 </div>
               ))}
             </div>
-          ) : (
+          ) : userConversations.length === 0 ? (
             <div className="text-center py-8 sm:py-12">
               <MessageCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">No Queries Yet</h3>
@@ -252,6 +337,20 @@ export default function CustomerDashboardPage() {
               >
                 <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span>Raise New Query</span>
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-8 sm:py-12">
+              <Search className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">No Results Found</h3>
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4 sm:mb-6 px-2">
+                No queries match your search "{searchQuery}"
+              </p>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium text-sm sm:text-base"
+              >
+                Clear Search
               </button>
             </div>
           )}

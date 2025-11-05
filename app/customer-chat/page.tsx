@@ -8,15 +8,19 @@ import { CustomerLogin } from '@/components/CustomerLogin';
 import { ChatMessage } from '@/components/ChatMessage';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { QuickOptions } from '@/components/QuickOptions';
-import { Send, LogOut, ArrowLeft } from 'lucide-react';
+import { RatingModal } from '@/components/RatingModal';
+import { NotificationSettings } from '@/components/NotificationSettings';
+import { Send, LogOut, ArrowLeft, Mic, MicOff, Paperclip, X } from 'lucide-react';
 import Link from 'next/link';
-import { Customer, BotFlowType, BotOption } from '@/types';
+import { Customer, BotFlowType, BotOption, FileAttachment } from '@/types';
 import { getBotResponse, handleUserSelection, checkApplicationStatus } from '@/utils/botFlows';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function CustomerChatPage() {
   const { user, logout, isAuthenticated } = useAuth();
-  const { conversations, createConversation, sendMessage, getConversation, updateConversationStatus } = useChat();
+  const { conversations, createConversation, sendMessage, getConversation, updateConversationStatus, updateRating } = useChat();
   const router = useRouter();
   
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -25,12 +29,35 @@ export default function CustomerChatPage() {
   const [currentOptions, setCurrentOptions] = useState<BotOption[]>([]);
   const [waitingForInput, setWaitingForInput] = useState(false);
   const [currentFlow, setCurrentFlow] = useState<BotFlowType>('greeting');
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Track if we've checked for existing conversations
   const [hasCheckedConversations, setHasCheckedConversations] = useState(false);
+
+  // Speech recognition
+  const {
+    isListening,
+    transcript,
+    error: speechError,
+    startListening,
+    stopListening,
+    isSupported: isSpeechSupported,
+  } = useSpeechRecognition();
+
+  // Notifications
+  const {
+    showNotification,
+    isEnabled: notificationsEnabled,
+  } = useNotifications({ title: 'KRUX Finance - Customer Support' });
+
+  // Track previous messages count to detect new messages
+  const previousMessagesCountRef = useRef<number>(0);
+  const previousUnreadCountRef = useRef<number>(0);
 
   // Get current conversation
   const currentConversation = conversationId ? getConversation(conversationId) : null;
@@ -117,6 +144,18 @@ export default function CustomerChatPage() {
         if (conv && conv.customerId === user?.id) {
           setConversationId(convId);
           setHasCheckedConversations(true);
+          
+          // Show rating modal if ticket is resolved, has an agent, and hasn't been rated
+          if (
+            conv.status === 'resolved' &&
+            conv.assignedAgentId &&
+            !conv.rating
+          ) {
+            // Small delay to ensure page is fully loaded
+            setTimeout(() => {
+              setShowRatingModal(true);
+            }, 500);
+          }
           return;
         }
       } else {
@@ -126,6 +165,23 @@ export default function CustomerChatPage() {
       }
     }
   }, [isAuthenticated, conversationId, getConversation, user, router]);
+
+  // Check if rating modal should be shown when conversation changes
+  useEffect(() => {
+    if (
+      currentConversation &&
+      currentConversation.status === 'resolved' &&
+      currentConversation.assignedAgentId &&
+      !currentConversation.rating &&
+      !showRatingModal
+    ) {
+      // Small delay to ensure user sees the resolved conversation first
+      const timer = setTimeout(() => {
+        setShowRatingModal(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentConversation, showRatingModal]);
 
   // Send greeting message when a new conversation is loaded (with no messages)
   useEffect(() => {
@@ -149,10 +205,131 @@ export default function CustomerChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversations, isTyping]);
 
+  // Check for new messages and show notifications
+  useEffect(() => {
+    if (!currentConversation || !notificationsEnabled || !user) return;
+
+    const currentMessagesCount = currentConversation.messages.length;
+    const unreadCount = currentConversation.messages.filter(
+      msg => !msg.read && msg.sender !== 'customer'
+    ).length;
+
+    // Check if new message arrived (not from current user viewing their own conversation)
+    if (
+      currentMessagesCount > previousMessagesCountRef.current &&
+      previousMessagesCountRef.current > 0 // Don't notify on initial load
+    ) {
+      const lastMessage = currentConversation.messages[currentConversation.messages.length - 1];
+      
+      // Only notify if:
+      // 1. Message is not from customer (customer sent it themselves)
+      // 2. Message is unread
+      // 3. Page is hidden (user is not actively viewing the chat) OR it's a different conversation
+      const isPageHidden = typeof document !== 'undefined' && document.hidden;
+      
+      if (
+        lastMessage.sender !== 'customer' &&
+        lastMessage.senderId !== user.id &&
+        !lastMessage.read &&
+        isPageHidden // Only notify if page is in background
+      ) {
+        const senderName = lastMessage.sender === 'bot' ? 'KRUX Bot' : lastMessage.senderName;
+        const messagePreview = lastMessage.content.length > 50 
+          ? lastMessage.content.substring(0, 50) + '...' 
+          : lastMessage.content;
+
+        showNotification(
+          `New message from ${senderName}`,
+          {
+            body: messagePreview,
+            tag: currentConversation.id,
+          }
+        );
+      }
+    }
+
+    previousMessagesCountRef.current = currentMessagesCount;
+    previousUnreadCountRef.current = unreadCount;
+  }, [currentConversation?.messages, notificationsEnabled, user, showNotification]);
+
+  // Update page title with unread count
+  useEffect(() => {
+    if (!notificationsEnabled || !currentConversation) {
+      document.title = 'KRUX Finance - Customer Support';
+      return;
+    }
+
+    const unreadCount = currentConversation.messages.filter(
+      msg => !msg.read && msg.sender !== 'customer'
+    ).length;
+
+    if (unreadCount > 0) {
+      document.title = `(${unreadCount}) KRUX Finance - Customer Support`;
+    } else {
+      document.title = 'KRUX Finance - Customer Support';
+    }
+  }, [currentConversation?.messages, notificationsEnabled]);
+
+  // Update input message when transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setInputMessage(transcript);
+    }
+  }, [transcript]);
+
+  // Handle speech recognition toggle
+  const handleToggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...files]);
+    }
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Remove file from selection
+  const handleRemoveFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Convert File to FileAttachment
+  const convertFileToAttachment = (file: File): FileAttachment => {
+    const fileId = `file-${Date.now()}-${Math.random()}`;
+    // Create mock URL for preview (using FileReader for images)
+    let url: string | undefined;
+    if (file.type.startsWith('image/')) {
+      url = URL.createObjectURL(file);
+    }
+    return {
+      id: fileId,
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      url,
+    };
+  };
+
   const handleSendMessage = () => {
-    if (!inputMessage.trim() || !conversationId || !user) return;
+    if ((!inputMessage.trim() && selectedFiles.length === 0) || !conversationId || !user) return;
+
+    // Stop listening if active
+    if (isListening) {
+      stopListening();
+    }
 
     const messageText = inputMessage.trim();
+    const attachments: FileAttachment[] = selectedFiles.map(convertFileToAttachment);
     
     // Check previous bot message to see if it asked for more
     const lastBotMessage = currentConversation?.messages
@@ -185,6 +362,7 @@ export default function CustomerChatPage() {
         // User already has an active ticket, don't allow escalation
         sendMessage(conversationId, `You already have an active ticket. Please wait for it to be resolved before creating a new one.`, 'bot', 'bot-1', 'KRUX Bot');
         setInputMessage('');
+        setSelectedFiles([]);
         return;
       }
       
@@ -194,17 +372,19 @@ export default function CustomerChatPage() {
       }
     }
 
-    // Send user message
-    sendMessage(conversationId, messageText, 'customer', user.id, user.name);
+    // Send user message with attachments
+    sendMessage(conversationId, messageText || (attachments.length > 0 ? '📎 Attached file(s)' : ''), 'customer', user.id, user.name, attachments.length > 0 ? attachments : undefined);
+
+    // Clear input and files
+    setInputMessage('');
+    setSelectedFiles([]);
 
     // Check if waiting for specific input (like application ID)
     if (waitingForInput && currentFlow === 'status_check') {
       const userInput = messageText;
-      setInputMessage('');
       setWaitingForInput(false);
       sendBotMessage('status_check', userInput);
     } else {
-      setInputMessage('');
       // For general messages, provide general query response
       sendBotMessage('general_query');
     }
@@ -275,6 +455,12 @@ export default function CustomerChatPage() {
     }
   };
 
+  const handleRatingSubmit = (rating: { score: number; comment?: string }) => {
+    if (conversationId) {
+      updateRating(conversationId, rating);
+    }
+  };
+
   if (!isAuthenticated) {
     return <CustomerLogin />;
   }
@@ -301,6 +487,7 @@ export default function CustomerChatPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <NotificationSettings />
             <ThemeToggle />
             <button
               onClick={logout}
@@ -334,7 +521,71 @@ export default function CustomerChatPage() {
 
           {/* Input Area - Sticky Footer */}
           <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
+            {speechError && (
+              <div className="mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <p className="text-xs text-red-600 dark:text-red-400">{speechError}</p>
+              </div>
+            )}
+            {isListening && (
+              <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Listening...</p>
+              </div>
+            )}
+            {selectedFiles.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-sm"
+                  >
+                    <span className="text-blue-700 dark:text-blue-300 truncate max-w-[150px]">{file.name}</span>
+                    <button
+                      onClick={() => handleRemoveFile(index)}
+                      className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
+                      aria-label="Remove file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+                accept="image/*,.pdf,.doc,.docx,.txt"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isTyping}
+                className="p-2.5 sm:p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                title="Attach file"
+              >
+                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              {isSpeechSupported && (
+                <button
+                  onClick={handleToggleListening}
+                  disabled={isTyping}
+                  className={`p-2.5 sm:p-3 rounded-full transition-colors flex-shrink-0 ${
+                    isListening
+                      ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  title={isListening ? 'Stop listening' : 'Start voice input'}
+                >
+                  {isListening ? (
+                    <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                  ) : (
+                    <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
+                </button>
+              )}
               <input
                 ref={inputRef}
                 type="text"
@@ -347,7 +598,7 @@ export default function CustomerChatPage() {
               />
               <button
                 onClick={handleSendMessage}
-                disabled={!inputMessage.trim() || isTyping}
+                disabled={(!inputMessage.trim() && selectedFiles.length === 0) || isTyping}
                 className="bg-blue-600 text-white p-2.5 sm:p-3 rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
               >
                 <Send className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -357,6 +608,14 @@ export default function CustomerChatPage() {
           </div>
         </div>
       </div>
+
+      {/* Rating Modal */}
+      <RatingModal
+        isOpen={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        onSubmit={handleRatingSubmit}
+        agentName={currentConversation?.assignedAgentName}
+      />
     </div>
   );
 }
