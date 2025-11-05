@@ -92,13 +92,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isCustomer = 
 
   return (
     <div
-      className={`flex items-start gap-3 mb-5 animate-slide-up ${
+      className={`flex items-start gap-2 sm:gap-3 mb-4 sm:mb-5 animate-slide-up ${
         isOwnMessage ? "flex-row-reverse" : "flex-row"
       }`}
     >
       {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${
+        className={`flex-shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-sm ${
           isBot
             ? "bg-gradient-to-br from-blue-500 to-blue-600"
             : isAgent
@@ -109,28 +109,28 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isCustomer = 
         }`}
       >
         {isBot ? (
-          <Bot className="w-5 h-5 text-white" />
+          <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         ) : isAgent ? (
-          <Headphones className="w-4 h-4 text-white" />
+          <Headphones className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
         ) : (
-          <User className="w-5 h-5 text-white" />
+          <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
         )}
       </div>
 
       {/* Message Content */}
-      <div className={`flex-1 max-w-[75%] ${isOwnMessage ? "items-end" : "items-start"}`}>
+      <div className={`flex-1 max-w-[85%] sm:max-w-[75%] ${isOwnMessage ? "items-end" : "items-start"}`}>
         {!isOwnMessage && (
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 font-semibold px-1">{message.senderName}</div>
+          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1 sm:mb-1.5 font-semibold px-1">{message.senderName}</div>
         )}
         <div
-          className={`rounded-2xl px-4 py-2.5 shadow-sm ${
+          className={`rounded-xl sm:rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm ${
             isOwnMessage
-              ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-sm shadow-blue-500/20"
+              ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-br-sm sm:rounded-br-sm shadow-blue-500/20"
               : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-sm border border-gray-200/50 dark:border-gray-700/50 shadow-gray-200/50 dark:shadow-gray-900/50"
           }`}
         >
           {message.content && (
-            <p className={`text-sm leading-relaxed whitespace-pre-wrap break-words ${
+            <p className={`text-sm sm:text-sm leading-relaxed whitespace-pre-wrap break-words ${
               isOwnMessage ? "text-white" : "text-gray-900 dark:text-white"
             }`}>{message.content}</p>
           )}
@@ -146,7 +146,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, isCustomer = 
             </div>
           )}
         </div>
-        <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1.5 px-1 ${isOwnMessage ? "text-right" : "text-left"}`}>
+        <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 sm:mt-1.5 px-1 ${isOwnMessage ? "text-right" : "text-left"}`}>
           {formatTime(message.timestamp)}
         </div>
       </div>

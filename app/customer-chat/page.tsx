@@ -392,7 +392,7 @@ export default function CustomerChatPage() {
     <div className="h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-gray-900 dark:to-slate-900 flex flex-col overflow-hidden">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-800/50 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link
               href="/customer-dashboard"
@@ -423,11 +423,11 @@ export default function CustomerChatPage() {
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-2 sm:px-4 md:px-6 py-2 sm:py-4 md:py-6 overflow-hidden min-h-0">
         {/* Chat Container */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-800/50 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-800/50 overflow-hidden min-h-0">
           {/* Chat Messages Area */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8 custom-scrollbar min-h-0 bg-gradient-to-b from-gray-50/50 to-transparent dark:from-gray-900/30 dark:to-transparent">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-6 md:px-8 py-4 sm:py-6 md:py-8 custom-scrollbar min-h-0 bg-gradient-to-b from-gray-50/50 to-transparent dark:from-gray-900/30 dark:to-transparent">
             {currentConversation?.messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full py-12">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl flex items-center justify-center mb-4">
@@ -453,38 +453,38 @@ export default function CustomerChatPage() {
           </div>
 
           {/* Input Area - Sticky Footer */}
-          <div className="sticky bottom-0 border-t border-gray-200/80 dark:border-gray-800/80 p-4 sm:p-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
+          <div className="sticky bottom-0 border-t border-gray-200/80 dark:border-gray-800/80 p-2.5 sm:p-4 md:p-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
             {speechError && (
-              <div className="mb-3 px-4 py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl shadow-sm">
+              <div className="mb-2 sm:mb-3 px-3 sm:px-4 py-1.5 sm:py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-lg sm:rounded-xl shadow-sm">
                 <p className="text-xs font-medium text-red-700 dark:text-red-400">{speechError}</p>
               </div>
             )}
             {isListening && (
-              <div className="mb-3 px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-xl shadow-sm flex items-center gap-2.5">
-                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-sm shadow-red-500/50"></div>
+              <div className="mb-2 sm:mb-3 px-3 sm:px-4 py-1.5 sm:py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-lg sm:rounded-xl shadow-sm flex items-center gap-2">
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 bg-red-500 rounded-full animate-pulse shadow-sm shadow-red-500/50"></div>
                 <p className="text-xs font-medium text-blue-700 dark:text-blue-400">Listening...</p>
               </div>
             )}
             {selectedFiles.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2">
+              <div className="mb-2 sm:mb-3 flex flex-wrap gap-1.5 sm:gap-2 max-h-20 sm:max-h-none overflow-y-auto">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-lg text-sm shadow-sm"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-md sm:rounded-lg text-xs sm:text-sm shadow-sm"
                   >
-                    <span className="text-blue-700 dark:text-blue-300 truncate max-w-[150px] font-medium">{file.name}</span>
+                    <span className="text-blue-700 dark:text-blue-300 truncate max-w-[100px] sm:max-w-[150px] font-medium">{file.name}</span>
                     <button
                       onClick={() => handleRemoveFile(index)}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors flex-shrink-0 touch-manipulation"
                       aria-label="Remove file"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -496,16 +496,16 @@ export default function CustomerChatPage() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isTyping}
-                className="p-2.5 sm:p-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:shadow-sm"
+                className="p-2 sm:p-2.5 md:p-3 rounded-lg sm:rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:shadow-sm touch-manipulation"
                 title="Attach file"
               >
-                <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Paperclip className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </button>
               {isSpeechSupported && (
                 <button
                   onClick={handleToggleListening}
                   disabled={isTyping}
-                  className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 flex-shrink-0 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`p-2 sm:p-2.5 md:p-3 rounded-lg sm:rounded-xl transition-all duration-200 flex-shrink-0 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation ${
                     isListening
                       ? 'bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-500/30'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -513,9 +513,9 @@ export default function CustomerChatPage() {
                   title={isListening ? 'Stop listening' : 'Start voice input'}
                 >
                   {isListening ? (
-                    <MicOff className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <MicOff className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                   ) : (
-                    <Mic className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <Mic className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                   )}
                 </button>
               )}
@@ -526,15 +526,15 @@ export default function CustomerChatPage() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={waitingForInput ? "Enter your response..." : "Type your message..."}
-                className="flex-1 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-600 outline-none transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm hover:shadow-md focus:shadow-md"
+                className="flex-1 min-w-0 px-3 sm:px-4 md:px-5 py-2 sm:py-2.5 md:py-3 text-sm sm:text-sm md:text-base border border-gray-300 dark:border-gray-700 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-600 outline-none transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm hover:shadow-md focus:shadow-md"
                 disabled={isTyping}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={(!inputMessage.trim() && selectedFiles.length === 0) || isTyping}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-2.5 sm:p-3.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 disabled:shadow-none"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-2 sm:p-2.5 md:p-3.5 rounded-lg sm:rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 disabled:shadow-none touch-manipulation"
               >
-                <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                <Send className="w-4 h-4 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </button>
             </div>
             
