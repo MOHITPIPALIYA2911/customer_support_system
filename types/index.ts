@@ -50,6 +50,15 @@ export interface Message {
   content: string;
   timestamp: Date;
   read: boolean;
+  attachments?: FileAttachment[];
+}
+
+export interface FileAttachment {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+  url?: string; // Mock URL for preview
 }
 
 // Conversation Types
@@ -71,6 +80,11 @@ export interface Conversation {
   resolvedAt?: Date;
   tags?: string[];
   internalNotes?: InternalNote[];
+  rating?: {
+    score: number; // 1-5
+    comment?: string;
+    ratedAt: Date;
+  };
 }
 
 export interface InternalNote {
@@ -142,7 +156,7 @@ export interface AuthContextType {
 export interface ChatContextType {
   conversations: Conversation[];
   activeConversation: Conversation | null;
-  sendMessage: (conversationId: string, content: string, sender: MessageSender, senderId?: string, senderName?: string) => void;
+  sendMessage: (conversationId: string, content: string, sender: MessageSender, senderId?: string, senderName?: string, attachments?: FileAttachment[]) => void;
   createConversation: (customer: Customer) => string;
   getConversation: (conversationId: string) => Conversation | undefined;
   updateConversationStatus: (conversationId: string, status: ConversationStatus) => void;
@@ -151,5 +165,6 @@ export interface ChatContextType {
   addInternalNote: (conversationId: string, note: string, agentId: string, agentName: string) => void;
   markMessagesAsRead: (conversationId: string) => void;
   getUnreadCount: (conversationId: string) => number;
+  updateRating: (conversationId: string, rating: { score: number; comment?: string }) => void;
 }
 

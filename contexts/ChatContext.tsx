@@ -8,6 +8,7 @@ import {
   Customer,
   MessageSender,
   ConversationStatus,
+  FileAttachment,
 } from "@/types";
 import { saveConversations, getConversations } from "@/utils/localStorage";
 
@@ -27,6 +28,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         createdAt: new Date(conv.createdAt),
         lastMessageAt: new Date(conv.lastMessageAt),
         resolvedAt: conv.resolvedAt ? new Date(conv.resolvedAt) : undefined,
+        rating: conv.rating
+          ? {
+              ...conv.rating,
+              ratedAt: new Date(conv.rating.ratedAt),
+            }
+          : undefined,
         messages: conv.messages.map((msg: any) => ({
           ...msg,
           timestamp: new Date(msg.timestamp),
@@ -75,7 +82,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     content: string,
     sender: MessageSender,
     senderId?: string,
-    senderName?: string
+    senderName?: string,
+    attachments?: FileAttachment[]
   ): void => {
     const messageId = `msg-${Date.now()}-${Math.random()}`;
     const now = new Date();
@@ -89,6 +97,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       content,
       timestamp: now,
       read: sender === "customer", // Customer's own messages are marked as read
+      attachments: attachments || undefined,
     };
 
     setConversations((prev) =>
@@ -252,6 +261,45 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     return conversation.messages.filter((msg) => !msg.read && msg.sender !== "customer").length;
   };
 
+  const updateRating = (
+    conversationId: string,
+    rating: { score: number; comment?: string }
+  ): void => {
+    const now = new Date();
+
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id === conversationId) {
+          return {
+            ...conv,
+            rating: {
+              score: rating.score,
+              comment: rating.comment,
+              ratedAt: now,
+            },
+          };
+        }
+        return conv;
+      })
+    );
+
+    if (activeConversation?.id === conversationId) {
+      setActiveConversationState((prev) => {
+        if (prev) {
+          return {
+            ...prev,
+            rating: {
+              score: rating.score,
+              comment: rating.comment,
+              ratedAt: now,
+            },
+          };
+        }
+        return prev;
+      });
+    }
+  };
+
   return (
     <ChatContext.Provider
       value={{
@@ -266,6 +314,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         addInternalNote,
         markMessagesAsRead,
         getUnreadCount,
+        updateRating,
       }}
     >
       {children}

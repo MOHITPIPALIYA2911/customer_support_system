@@ -8,12 +8,10 @@ import { TicketCard } from '@/components/TicketCard';
 import { ChatMessage } from '@/components/ChatMessage';
 import { CustomerInfoPanel } from '@/components/CustomerInfoPanel';
 import { QuickReplyPanel } from '@/components/QuickReplyPanel';
-import { NotificationSettings } from '@/components/NotificationSettings';
 import { Send, LogOut, CheckCircle2, AlertTriangle, StickyNote, Filter, Menu, X, ArrowLeft, User, Mic, MicOff, Paperclip, Search } from 'lucide-react';
 import { Agent } from '@/types';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useNotifications } from '@/hooks/useNotifications';
 import { FileAttachment } from '@/types';
 
 export default function SupportDashboardPage() {
@@ -52,16 +50,6 @@ export default function SupportDashboardPage() {
     isSupported: isSpeechSupported,
   } = useSpeechRecognition();
 
-  // Notifications
-  const {
-    showNotification,
-    isEnabled: notificationsEnabled,
-  } = useNotifications({ title: 'KRUX Finance - Support Dashboard' });
-
-  // Track previous messages count to detect new messages
-  const previousMessagesCountRef = useRef<Record<string, number>>({});
-  const previousUnreadCountRef = useRef<number>(0);
-
   // Handle window resize to reset mobile view
   useEffect(() => {
     const handleResize = () => {
@@ -93,79 +81,6 @@ export default function SupportDashboardPage() {
       markMessagesAsRead(activeConversation.id);
     }
   }, [activeConversation?.id]);
-
-  // Check for new messages and show notifications
-  useEffect(() => {
-    if (!notificationsEnabled || !user) return;
-
-    const isPageHidden = typeof document !== 'undefined' && document.hidden;
-
-    conversations.forEach(conv => {
-      const currentMessagesCount = conv.messages.length;
-      const previousCount = previousMessagesCountRef.current[conv.id] || 0;
-
-      // Check if new message arrived
-      if (
-        currentMessagesCount > previousCount &&
-        previousCount > 0 // Don't notify on initial load
-      ) {
-        const lastMessage = conv.messages[conv.messages.length - 1];
-        
-        // Only notify if:
-        // 1. Message is from customer (agent wants to know about customer messages)
-        // 2. Message is unread
-        // 3. Agent is assigned to this conversation or conversation is not assigned
-        // 4. Conversation is not currently active OR page is hidden
-        // 5. Page is hidden (user is not actively viewing)
-        if (
-          lastMessage.sender === 'customer' &&
-          lastMessage.senderId !== user.id &&
-          !lastMessage.read &&
-          (!conv.assignedAgentId || conv.assignedAgentId === user.id) &&
-          (!activeConversation || activeConversation.id !== conv.id) &&
-          isPageHidden // Only notify if page is in background
-        ) {
-          const messagePreview = lastMessage.content.length > 50 
-            ? lastMessage.content.substring(0, 50) + '...' 
-            : lastMessage.content;
-
-          showNotification(
-            `New message from ${conv.customerName}`,
-            {
-              body: messagePreview,
-              tag: conv.id,
-            }
-          );
-        }
-      }
-
-      previousMessagesCountRef.current[conv.id] = currentMessagesCount;
-    });
-
-    // Update total unread count
-    const totalUnread = conversations.reduce((total, conv) => {
-      return total + getUnreadCount(conv.id);
-    }, 0);
-    previousUnreadCountRef.current = totalUnread;
-  }, [conversations, notificationsEnabled, user, activeConversation, getUnreadCount, showNotification]);
-
-  // Update page title with unread count
-  useEffect(() => {
-    if (!notificationsEnabled) {
-      document.title = 'KRUX Finance - Support Dashboard';
-      return;
-    }
-
-    const totalUnread = conversations.reduce((total, conv) => {
-      return total + getUnreadCount(conv.id);
-    }, 0);
-
-    if (totalUnread > 0) {
-      document.title = `(${totalUnread}) KRUX Finance - Support Dashboard`;
-    } else {
-      document.title = 'KRUX Finance - Support Dashboard';
-    }
-  }, [conversations, notificationsEnabled, getUnreadCount]);
 
   // Switch back to tickets view on mobile when conversation is closed
   useEffect(() => {
@@ -366,7 +281,6 @@ export default function SupportDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 md:gap-4">
-            <NotificationSettings />
             <ThemeToggle />
             <div className="hidden sm:flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>

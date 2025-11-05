@@ -6,24 +6,17 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
 import { CustomerLogin } from '@/components/CustomerLogin';
-import { NotificationSettings } from '@/components/NotificationSettings';
 import { User, MessageCircle, Plus, Clock, CheckCircle2, AlertCircle, ArrowRight, LogOut, Search, X } from 'lucide-react';
 import { Conversation } from '@/types';
 import { getLoanApplicationsByCustomerId } from '@/utils/mockData';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { useNotifications } from '@/hooks/useNotifications';
 
 export default function CustomerDashboardPage() {
   const { user, logout, isAuthenticated } = useAuth();
-  const { conversations, createConversation, getUnreadCount } = useChat();
+  const { conversations, createConversation } = useChat();
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Notifications
-  const {
-    isEnabled: notificationsEnabled,
-  } = useNotifications({ title: 'KRUX Finance - Customer Dashboard' });
 
   // Get user's conversations
   const userConversations = conversations
@@ -139,24 +132,6 @@ export default function CustomerDashboardPage() {
   // Apply search filter
   const filteredConversations = searchConversations(searchQuery, userConversations);
 
-  // Update page title with unread count
-  useEffect(() => {
-    if (!notificationsEnabled) {
-      document.title = 'KRUX Finance - Customer Dashboard';
-      return;
-    }
-
-    const totalUnread = userConversations.reduce((total, conv) => {
-      return total + getUnreadCount(conv.id);
-    }, 0);
-
-    if (totalUnread > 0) {
-      document.title = `(${totalUnread}) KRUX Finance - Customer Dashboard`;
-    } else {
-      document.title = 'KRUX Finance - Customer Dashboard';
-    }
-  }, [userConversations, notificationsEnabled, getUnreadCount]);
-
   if (!isAuthenticated) {
     return <CustomerLogin />;
   }
@@ -176,7 +151,6 @@ export default function CustomerDashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-4 flex-shrink-0">
-            <NotificationSettings />
             <ThemeToggle />
             <button
               onClick={logout}

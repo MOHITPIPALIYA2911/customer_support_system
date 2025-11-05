@@ -9,14 +9,12 @@ import { ChatMessage } from '@/components/ChatMessage';
 import { TypingIndicator } from '@/components/TypingIndicator';
 import { QuickOptions } from '@/components/QuickOptions';
 import { RatingModal } from '@/components/RatingModal';
-import { NotificationSettings } from '@/components/NotificationSettings';
-import { Send, LogOut, ArrowLeft, Mic, MicOff, Paperclip, X } from 'lucide-react';
+import { Send, LogOut, ArrowLeft, Mic, MicOff, Paperclip, X, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Customer, BotFlowType, BotOption, FileAttachment } from '@/types';
 import { getBotResponse, handleUserSelection, checkApplicationStatus } from '@/utils/botFlows';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useNotifications } from '@/hooks/useNotifications';
 
 export default function CustomerChatPage() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -48,16 +46,6 @@ export default function CustomerChatPage() {
     stopListening,
     isSupported: isSpeechSupported,
   } = useSpeechRecognition();
-
-  // Notifications
-  const {
-    showNotification,
-    isEnabled: notificationsEnabled,
-  } = useNotifications({ title: 'KRUX Finance - Customer Support' });
-
-  // Track previous messages count to detect new messages
-  const previousMessagesCountRef = useRef<number>(0);
-  const previousUnreadCountRef = useRef<number>(0);
 
   // Get current conversation
   const currentConversation = conversationId ? getConversation(conversationId) : null;
@@ -204,71 +192,6 @@ export default function CustomerChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversations, isTyping]);
-
-  // Check for new messages and show notifications
-  useEffect(() => {
-    if (!currentConversation || !notificationsEnabled || !user) return;
-
-    const currentMessagesCount = currentConversation.messages.length;
-    const unreadCount = currentConversation.messages.filter(
-      msg => !msg.read && msg.sender !== 'customer'
-    ).length;
-
-    // Check if new message arrived (not from current user viewing their own conversation)
-    if (
-      currentMessagesCount > previousMessagesCountRef.current &&
-      previousMessagesCountRef.current > 0 // Don't notify on initial load
-    ) {
-      const lastMessage = currentConversation.messages[currentConversation.messages.length - 1];
-      
-      // Only notify if:
-      // 1. Message is not from customer (customer sent it themselves)
-      // 2. Message is unread
-      // 3. Page is hidden (user is not actively viewing the chat) OR it's a different conversation
-      const isPageHidden = typeof document !== 'undefined' && document.hidden;
-      
-      if (
-        lastMessage.sender !== 'customer' &&
-        lastMessage.senderId !== user.id &&
-        !lastMessage.read &&
-        isPageHidden // Only notify if page is in background
-      ) {
-        const senderName = lastMessage.sender === 'bot' ? 'KRUX Bot' : lastMessage.senderName;
-        const messagePreview = lastMessage.content.length > 50 
-          ? lastMessage.content.substring(0, 50) + '...' 
-          : lastMessage.content;
-
-        showNotification(
-          `New message from ${senderName}`,
-          {
-            body: messagePreview,
-            tag: currentConversation.id,
-          }
-        );
-      }
-    }
-
-    previousMessagesCountRef.current = currentMessagesCount;
-    previousUnreadCountRef.current = unreadCount;
-  }, [currentConversation?.messages, notificationsEnabled, user, showNotification]);
-
-  // Update page title with unread count
-  useEffect(() => {
-    if (!notificationsEnabled || !currentConversation) {
-      document.title = 'KRUX Finance - Customer Support';
-      return;
-    }
-
-    const unreadCount = currentConversation.messages.filter(
-      msg => !msg.read && msg.sender !== 'customer'
-    ).length;
-
-    if (unreadCount > 0) {
-      document.title = `(${unreadCount}) KRUX Finance - Customer Support`;
-    } else {
-      document.title = 'KRUX Finance - Customer Support';
-    }
-  }, [currentConversation?.messages, notificationsEnabled]);
 
   // Update input message when transcript changes
   useEffect(() => {
@@ -466,46 +389,56 @@ export default function CustomerChatPage() {
   }
 
   return (
-    <div className="h-screen bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-gray-900 dark:to-slate-900 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2 sm:py-4 flex items-center justify-between gap-2">
+      <header className="sticky top-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200/50 dark:border-gray-800/50 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
             <Link
               href="/customer-dashboard"
-              className="inline-flex items-center gap-1 sm:gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors p-1.5 sm:p-2 -ml-1 sm:-ml-2 flex-shrink-0"
+              className="inline-flex items-center gap-1.5 sm:gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 rounded-lg transition-all duration-200 p-1.5 sm:p-2 -ml-1 sm:-ml-2 flex-shrink-0"
               title="Back to Dashboard"
             >
               <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </Link>
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-sm sm:text-lg">K</span>
+            <div className="w-9 h-9 sm:w-11 sm:h-11 bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md shadow-blue-500/20">
+              <span className="text-white font-bold text-base sm:text-lg">K</span>
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">KRUX Finance</h1>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Customer Support</p>
+              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate tracking-tight">KRUX Finance</h1>
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate font-medium">Customer Support</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            <NotificationSettings />
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
             <ThemeToggle />
             <button
               onClick={logout}
-              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all duration-200 hover:shadow-sm"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm">Logout</span>
+              <span className="hidden sm:inline text-sm font-medium">Logout</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-6 overflow-hidden min-h-0">
+      <div className="flex-1 flex flex-col max-w-4xl w-full mx-auto px-4 sm:px-6 py-4 sm:py-6 overflow-hidden min-h-0">
         {/* Chat Container */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col bg-white dark:bg-gray-900/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-800/50 overflow-hidden min-h-0">
           {/* Chat Messages Area */}
-          <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 custom-scrollbar min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 sm:py-8 custom-scrollbar min-h-0 bg-gradient-to-b from-gray-50/50 to-transparent dark:from-gray-900/30 dark:to-transparent">
+            {currentConversation?.messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl flex items-center justify-center mb-4">
+                  <MessageCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Start a conversation</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
+                  Your messages will appear here. Ask questions or type your query to get started.
+                </p>
+              </div>
+            )}
             {currentConversation?.messages.map((message) => (
               <ChatMessage key={message.id} message={message} isCustomer={true} />
             ))}
@@ -520,38 +453,38 @@ export default function CustomerChatPage() {
           </div>
 
           {/* Input Area - Sticky Footer */}
-          <div className="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4 bg-gray-50 dark:bg-gray-900">
+          <div className="sticky bottom-0 border-t border-gray-200/80 dark:border-gray-800/80 p-4 sm:p-6 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
             {speechError && (
-              <div className="mb-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-xs text-red-600 dark:text-red-400">{speechError}</p>
+              <div className="mb-3 px-4 py-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-xl shadow-sm">
+                <p className="text-xs font-medium text-red-700 dark:text-red-400">{speechError}</p>
               </div>
             )}
             {isListening && (
-              <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <p className="text-xs text-blue-600 dark:text-blue-400">Listening...</p>
+              <div className="mb-3 px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-xl shadow-sm flex items-center gap-2.5">
+                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-sm shadow-red-500/50"></div>
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-400">Listening...</p>
               </div>
             )}
             {selectedFiles.length > 0 && (
-              <div className="mb-2 flex flex-wrap gap-2">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={index}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-sm"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 rounded-lg text-sm shadow-sm"
                   >
-                    <span className="text-blue-700 dark:text-blue-300 truncate max-w-[150px]">{file.name}</span>
+                    <span className="text-blue-700 dark:text-blue-300 truncate max-w-[150px] font-medium">{file.name}</span>
                     <button
                       onClick={() => handleRemoveFile(index)}
-                      className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100"
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
                       aria-label="Remove file"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -563,7 +496,7 @@ export default function CustomerChatPage() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isTyping}
-                className="p-2.5 sm:p-3 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                className="p-2.5 sm:p-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 hover:shadow-sm"
                 title="Attach file"
               >
                 <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -572,11 +505,11 @@ export default function CustomerChatPage() {
                 <button
                   onClick={handleToggleListening}
                   disabled={isTyping}
-                  className={`p-2.5 sm:p-3 rounded-full transition-colors flex-shrink-0 ${
+                  className={`p-2.5 sm:p-3 rounded-xl transition-all duration-200 flex-shrink-0 hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
                     isListening
-                      ? 'bg-red-500 text-white hover:bg-red-600 animate-pulse'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                      ? 'bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-500/30'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
                   title={isListening ? 'Stop listening' : 'Start voice input'}
                 >
                   {isListening ? (
@@ -593,13 +526,13 @@ export default function CustomerChatPage() {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={waitingForInput ? "Enter your response..." : "Type your message..."}
-                className="flex-1 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border border-gray-300 dark:border-gray-600 rounded-full focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                className="flex-1 px-4 sm:px-5 py-3 sm:py-3.5 text-sm sm:text-base border border-gray-300 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 dark:focus:border-blue-600 outline-none transition-all duration-200 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 shadow-sm hover:shadow-md focus:shadow-md"
                 disabled={isTyping}
               />
               <button
                 onClick={handleSendMessage}
                 disabled={(!inputMessage.trim() && selectedFiles.length === 0) || isTyping}
-                className="bg-blue-600 text-white p-2.5 sm:p-3 rounded-full hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-2.5 sm:p-3.5 rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 shadow-md shadow-blue-500/30 hover:shadow-lg hover:shadow-blue-500/40 disabled:shadow-none"
               >
                 <Send className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
